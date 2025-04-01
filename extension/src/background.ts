@@ -367,6 +367,49 @@ chrome.commands?.onCommand.addListener((command) => {
     });
 });
 
+function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
+    const postMineAction = PostMineAction.showAnkiDialog;
+
+    tabRegistry.publishCommandToVideoElements((videoElement) => {
+        if (tabs.find((t) => t.id === videoElement.tab.id) === undefined) {
+            return undefined;
+        }
+
+        return {
+            sender: 'asbplayer-extension-to-video',
+            message: {
+                command: 'copy-subtitle',
+                postMineAction,
+            },
+            src: videoElement.src,
+        };
+    });
+
+    tabRegistry.publishCommandToAsbplayers({
+        commandFactory: (asbplayer) => {
+            if (!asbplayer || asbplayer.sidePanel || !tabs.find((t) => t.id === asbplayer.tab?.id)) {
+                return undefined;
+            }
+
+            return {
+                sender: 'asbplayer-extension-to-player',
+                message: {
+                    command: 'copy-subtitle',
+                    postMineAction,
+                },
+                asbplayerId: asbplayer.id,
+            };
+        },
+    });
+}
+
+(window as any).mineSubtitleNow = () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        mineCurrentSubtitleWithDialog(tabs);
+    });
+};
+
+
 function postMineActionFromCommand(command: string) {
     switch (command) {
         case 'copy-subtitle':
