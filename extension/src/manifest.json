@@ -47,6 +47,13 @@
             "js": ["asbplayer.js"],
             "all_frames": true,
             "run_at": "document_start"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "exclude_globs": ["*://killergerbah.github.io/asbplayer*", "*://localhost:3000/*"],
+            "js": ["floating-bar.js"],
+            "all_frames": true,
+            "run_at": "document_idle"
         }
     ],
     "commands": {
@@ -131,7 +138,8 @@
                 "asbplayer-locales/pl.json",
                 "asbplayer-locales/zh_CN.json",
                 "asbplayer-locales/pt_BR.json",
-                "asbplayer-locales/ru.json"
+                "asbplayer-locales/ru.json",
+                "mine-inject.js"
             ],
             "matches": ["<all_urls>"]
         }

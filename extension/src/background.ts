@@ -378,7 +378,7 @@ function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
         return {
             sender: 'asbplayer-extension-to-video',
             message: {
-                command: 'copy-subtitle',
+                command: 'copy-subtitle-with-dialog',
                 postMineAction,
             },
             src: videoElement.src,
@@ -403,11 +403,34 @@ function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
     });
 }
 
-(window as any).mineSubtitleNow = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        mineCurrentSubtitleWithDialog(tabs);
-    });
-};
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    switch (message.command) {
+        case 'mine-current-subtitle':
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                mineCurrentSubtitleWithDialog(tabs); 
+            });
+            return true;
+
+        case 'triggerMineNow':
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                const tab = tabs[0];
+                if (tab?.id !== undefined) {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        files: ['mine-inject.js'], 
+                    });
+                } else {
+                    console.error('❌ Impossible d’injecter le script : tab.id est undefined');
+                }
+            });
+            return true;
+
+        default:
+            return false;
+    }
+});
+
+
 
 
 function postMineActionFromCommand(command: string) {
