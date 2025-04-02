@@ -243,7 +243,7 @@ chrome.commands?.onCommand.addListener((command) => {
 
             return true;
         };
-
+        console.log(command)
         switch (command) {
             case 'copy-subtitle':
             case 'update-last-card':
@@ -372,6 +372,7 @@ function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
 
     tabRegistry.publishCommandToVideoElements((videoElement) => {
         if (tabs.find((t) => t.id === videoElement.tab.id) === undefined) {
+            console.log("Problème publishCommandToVideoElements")
             return undefined;
         }
 
@@ -388,13 +389,14 @@ function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
     tabRegistry.publishCommandToAsbplayers({
         commandFactory: (asbplayer) => {
             if (!asbplayer || asbplayer.sidePanel || !tabs.find((t) => t.id === asbplayer.tab?.id)) {
+                console.log("Problème publishCommandToAsbplayers")
                 return undefined;
             }
 
             return {
                 sender: 'asbplayer-extension-to-player',
                 message: {
-                    command: 'copy-subtitle',
+                    command: 'copy-subtitle-with-dialog',
                     postMineAction,
                 },
                 asbplayerId: asbplayer.id,
@@ -404,32 +406,63 @@ function mineCurrentSubtitleWithDialog(tabs: chrome.tabs.Tab[]) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.command) {
-        case 'mine-current-subtitle':
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                mineCurrentSubtitleWithDialog(tabs); 
-            });
-            return true;
+    console.log(message.command)
+    if (message.command === 'mine-current-subtitle') {
+        console.log('📩 Reçu commande : mine-current-subtitle');
 
-        case 'triggerMineNow':
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                const tab = tabs[0];
-                if (tab?.id !== undefined) {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tab.id },
-                        files: ['mine-inject.js'], 
-                    });
-                } else {
-                    console.error('❌ Impossible d’injecter le script : tab.id est undefined');
-                }
-            });
-            return true;
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            console.log('🔍 Tabs actifs détectés :', tabs);
 
-        default:
-            return false;
+            const postMineAction = PostMineAction.showAnkiDialog;
+
+            console.log('📤 Envoi de la commande copy-subtitle aux éléments vidéo...');
+            tabRegistry.publishCommandToVideoElements((videoElement) => {
+                const matchedTab = tabs.find((t) => t.id === videoElement.tab.id);
+                console.log(`➡️ Vérif tab vidéo [${videoElement.tab.id}] : ${matchedTab ? 'match' : 'no match'}`);
+
+                if (!matchedTab) return undefined;
+
+                const command = {
+                    sender: 'asbplayer-extension-to-video',
+                    message: {
+                        command: 'copy-subtitle',
+                        postMineAction,
+                    },
+                    src: videoElement.src,
+                };
+
+                console.log('✅ Commande vers vidéo :', command);
+                return command;
+            });
+
+            console.log('📤 Envoi de la commande copy-subtitle aux asbplayers...');
+            tabRegistry.publishCommandToAsbplayers({
+                commandFactory: (asbplayer) => {
+                    const matchedTab = tabs.find((t) => t.id === asbplayer.tab?.id);
+                    console.log(`➡️ Vérif asbplayer [${asbplayer.id}] : ${matchedTab ? 'match' : 'no match'} (sidePanel: ${asbplayer.sidePanel})`);
+
+                    if (!matchedTab || asbplayer.sidePanel) return undefined;
+
+                    const command = {
+                        sender: 'asbplayer-extension-to-player',
+                        message: {
+                            command: 'copy-subtitle',
+                            postMineAction,
+                        },
+                        asbplayerId: asbplayer.id,
+                    };
+
+                    console.log('✅ Commande vers asbplayer :', command);
+                    return command;
+                },
+            });
+        });
+
+        return true;
     }
-});
 
+    return false;
+});
 
 
 
